@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram JSON to Markdown Converter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Telegram JSON to Markdown Converter</h1>
+        
+        <div class="upload-section">
+            <label for="jsonFile">Выберите JSON файл экспорта Telegram:</label>
+            <input type="file" id="jsonFile" accept=".json">
+        </div>
+        
+        <div class="options-section">
+            <label for="messageCount">Количество сообщений для обработки:</label>
+            <select id="messageCount">
+                <option value="all">Все сообщения</option>
+                <option value="10">10 сообщений</option>
+                <option value="50">50 сообщений</option>
+                <option value="100">100 сообщений</option>
+                <option value="500">500 сообщений</option>
+                <option value="1000">1000 сообщений</option>
+            </select>
+        </div>
+        
+        <button id="convertBtn">Конвертировать в Markdown</button>
+        
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <p>Обработка сообщений...</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p id="progressText">0/0</p>
+        </div>
+        
+        <div class="result-section" id="resultSection" style="display: none;">
+            <h2>Результаты конвертации</h2>
+            <p id="resultText"></p>
+            <button id="downloadZipBtn">Скачать ZIP архив</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
