@@ -24,6 +24,14 @@ h1 {
     margin-bottom: 20px;
 }
 
+.word-count-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    display: none;
+}
+
 label {
     display: block;
     margin-bottom: 5px;
@@ -31,12 +39,25 @@ label {
     color: #555;
 }
 
-input[type="file"], select {
+input[type="file"], select, input[type="range"] {
     width: 100%;
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     font-size: 16px;
+}
+
+input[type="range"] {
+    padding: 0;
+    height: 25px;
+}
+
+#wordCountValue {
+    display: block;
+    text-align: right;
+    margin-top: 5px;
+    font-style: italic;
+    color: #666;
 }
 
 button {

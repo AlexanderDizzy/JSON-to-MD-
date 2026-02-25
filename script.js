@@ -3,6 +3,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const jsonFileInput = document.getElementById('jsonFile');
     const messageCountSelect = document.getElementById('messageCount');
+    const wordCountSection = document.getElementById('wordCountSection');
+    const maxWordsInput = document.getElementById('maxWords');
+    const wordCountValue = document.getElementById('wordCountValue');
     const convertBtn = document.getElementById('convertBtn');
     const progressSection = document.getElementById('progressSection');
     const progressFill = document.getElementById('progressFill');
@@ -12,6 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadZipBtn = document.getElementById('downloadZipBtn');
 
     let convertedFiles = [];
+
+    // Обработчик изменения выбора способа ограничения
+    messageCountSelect.addEventListener('change', () => {
+        if (messageCountSelect.value === 'by_words') {
+            wordCountSection.style.display = 'block';
+        } else {
+            wordCountSection.style.display = 'none';
+        }
+    });
+
+    // Обработчик изменения значения ползунка
+    maxWordsInput.addEventListener('input', () => {
+        wordCountValue.textContent = `${maxWordsInput.value} слов`;
+    });
 
     // Функция для конвертации JSON объекта сообщения в Markdown строку
     function messageToMarkdown(messageObj) {
@@ -69,14 +86,45 @@ document.addEventListener('DOMContentLoaded', () => {
         return md;
     }
 
+    // Функция для подсчета слов в строке
+    function countWords(str) {
+        if (!str) return 0;
+        if (typeof str === 'string') {
+            return str.trim().split(/\s+/).filter(word => word.length > 0).length;
+        } else if (Array.isArray(str)) {
+            // Если текст является массивом частей
+            return str.reduce((count, part) => {
+                if (typeof part === 'string') {
+                    return count + countWords(part);
+                } else if (part.text) {
+                    return count + countWords(part.text);
+                }
+                return count;
+            }, 0);
+        }
+        return 0;
+    }
+
     // Функция для конвертации JSON данных в Markdown
-    function convertJsonToMarkdown(jsonData, limit) {
+    function convertJsonToMarkdown(jsonData, limit, maxWordsPerFile = null) {
         const messages = jsonData.messages || [];
-        const totalMessages = limit === 'all' ? messages.length : Math.min(parseInt(limit), messages.length);
-        const selectedMessages = messages.slice(0, totalMessages);
+        let selectedMessages;
+        
+        if (limit === 'all') {
+            selectedMessages = messages;
+        } else if (limit === 'by_words') {
+            selectedMessages = messages; // Используем все сообщения, но разобьем по файлам
+        } else {
+            selectedMessages = messages.slice(0, parseInt(limit));
+        }
+        
+        // Если указан лимит по словам, разбиваем на несколько файлов
+        if (limit === 'by_words' && maxWordsPerFile) {
+            return convertByWordLimit(jsonData, selectedMessages, maxWordsPerFile);
+        }
         
         let markdownContent = `# ${jsonData.name || 'Экспорт Telegram'}\n\n`;
-        markdownContent += `Всего сообщений: ${totalMessages}\n\n`;
+        markdownContent += `Всего сообщений: ${selectedMessages.length}\n\n`;
         
         for (let i = 0; i < selectedMessages.length; i++) {
             markdownContent += messageToMarkdown(selectedMessages[i]);
@@ -87,11 +135,61 @@ document.addEventListener('DOMContentLoaded', () => {
             progressText.textContent = `${i + 1}/${selectedMessages.length}`;
         }
         
-        return {
+        return [{
             content: markdownContent,
             filename: `${jsonData.name || 'telegram_export'}.md`,
             totalProcessed: selectedMessages.length
-        };
+        }];
+    }
+
+    // Функция для конвертации с учетом лимита по словам
+    function convertByWordLimit(jsonData, messages, maxWordsPerFile) {
+        const files = [];
+        let currentFileContent = `# ${jsonData.name || 'Экспорт Telegram'}\n\n`;
+        let currentWordCount = 0;
+        let fileIndex = 1;
+        let totalProcessed = 0;
+
+        for (let i = 0; i < messages.length; i++) {
+            const messageMarkdown = messageToMarkdown(messages[i]);
+            const messageWordCount = countWords(messages[i].text);
+
+            // Если добавление этого сообщения превысит лимит слов
+            if (currentWordCount + messageWordCount > maxWordsPerFile && currentWordCount > 0) {
+                // Завершаем текущий файл и начинаем новый
+                currentFileContent += `\n\nВсего сообщений в файле: ${files.length === 0 ? totalProcessed : totalProcessed - (files.length * (Math.floor(totalProcessed/messages.length * files.length)))}`;
+                files.push({
+                    content: currentFileContent,
+                    filename: `${jsonData.name || 'telegram_export'}_part_${fileIndex}.md`,
+                    totalProcessed: totalProcessed
+                });
+
+                fileIndex++;
+                currentFileContent = `# ${jsonData.name || 'Экспорт Telegram (часть ${fileIndex}')}\n\n`;
+                currentWordCount = 0;
+            }
+
+            currentFileContent += messageMarkdown;
+            currentWordCount += messageWordCount;
+            totalProcessed++;
+
+            // Обновляем прогресс
+            const percent = Math.round(((i + 1) / messages.length) * 100);
+            progressFill.style.width = `${percent}%`;
+            progressText.textContent = `${i + 1}/${messages.length}`;
+        }
+
+        // Добавляем последний файл, если в нем есть содержимое
+        if (currentFileContent.trim() !== `# ${jsonData.name || 'Экспорт Telegram'}\n\n`) {
+            currentFileContent += `\n\nВсего сообщений в файле: ${totalProcessed - files.reduce((acc, file) => acc + file.totalProcessed, 0)}`;
+            files.push({
+                content: currentFileContent,
+                filename: `${jsonData.name || 'telegram_export'}_part_${fileIndex}.md`,
+                totalProcessed: totalProcessed - files.reduce((acc, f) => acc + f.totalProcessed, 0)
+            });
+        }
+
+        return files;
     }
 
     // Функция для создания ZIP архива
@@ -144,6 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const messageLimit = messageCountSelect.value;
+        const maxWords = parseInt(maxWordsInput.value);
         
         try {
             // Показываем прогресс
@@ -155,13 +254,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const jsonData = JSON.parse(jsonString);
             
             // Конвертируем в Markdown
-            const result = convertJsonToMarkdown(jsonData, messageLimit);
+            let results;
+            if (messageLimit === 'by_words') {
+                results = convertJsonToMarkdown(jsonData, messageLimit, maxWords);
+            } else {
+                results = convertJsonToMarkdown(jsonData, messageLimit);
+            }
             
             // Сохраняем результат
-            convertedFiles = [result];
+            convertedFiles = Array.isArray(results) ? results : [results];
             
             // Обновляем UI
-            resultText.textContent = `Конвертация завершена! Обработано ${result.totalProcessed} сообщений. Файл: ${result.filename}`;
+            resultText.textContent = `Конвертация завершена! Обработано ${convertedFiles.reduce((sum, file) => sum + file.totalProcessed, 0)} сообщений. Создано ${convertedFiles.length} файлов.`;
             progressSection.style.display = 'none';
             resultSection.style.display = 'block';
             
