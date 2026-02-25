@@ -24,7 +24,14 @@
                 <option value="100">100 сообщений</option>
                 <option value="500">500 сообщений</option>
                 <option value="1000">1000 сообщений</option>
+                <option value="by_words">По количеству слов</option>
             </select>
+        </div>
+
+        <div class="word-count-section" id="wordCountSection" style="display: none;">
+            <label for="maxWords">Максимальное количество слов в одном файле:</label>
+            <input type="range" id="maxWords" min="10" max="1000" value="100">
+            <span id="wordCountValue">100 слов</span>
         </div>
         
         <button id="convertBtn">Конвертировать в Markdown</button>
